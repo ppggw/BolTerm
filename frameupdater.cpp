@@ -27,7 +27,7 @@ void FrameUpdater::Timer_MW_timeout()
         }
         else{
             static int counter = 0;
-            static cv::Mat result = cv::Mat::zeros(512, 640, CV_8UC3);
+            static cv::Mat result;
             cv::Mat temp;
             if(counter <= NumImForSumm){
                 if(counter == 0){
