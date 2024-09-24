@@ -1,4 +1,4 @@
-QT       += core gui
+QT += core gui
 QT += network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
@@ -28,14 +28,5 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-INCLUDEPATH += E:/opencv/build/build_debug/install/include
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_core451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_highgui451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_imgproc451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_features2d451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_calib3d451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_video451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_videoio451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_imgcodecs451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_dnn451d
-LIBS += -L"E:/opencv/build/build_debug/install/x64/vc16/lib" -lopencv_tracking451d
+INCLUDEPATH += /home/shine/opencv-build/include/opencv4
+LIBS += -L/home/shine/opencv-build/lib -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_objdetect -lopencv_imgcodecs -lopencv_videoio -lopencv_dnn

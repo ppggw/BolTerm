@@ -1,9 +1,9 @@
 #include "frameupdater.h"
 
-FrameUpdater::FrameUpdater(cv::Mat* frame, QObject *parent) : QObject(parent)
+FrameUpdater::FrameUpdater(QMutex* _m, cv::Mat* frame, QObject *parent) : QObject(parent), m(_m)
 {
     pTimer_MW = new QTimer();
-    pTimer_MW->setInterval(5);
+    pTimer_MW->setInterval(20);
     pTimer_MW->start();
     my_frame = frame;
 
@@ -15,17 +15,35 @@ FrameUpdater::FrameUpdater(cv::Mat* frame, QObject *parent) : QObject(parent)
 
 void FrameUpdater::Timer_MW_timeout()
 {
-//        temp_frame = imread("D:/Work/4.jpg", cv::IMREAD_COLOR);
     if(source.isOpened())
     {
-        qDebug() << "F";
-        source.read(temp_frame);
-        m_mutex.lock();
-        *my_frame = temp_frame;
-        cv::cvtColor(*my_frame, *my_frame, cv::COLOR_BGR2RGB);
-        cv::resize(*my_frame, *my_frame, cv::Size(1920, 1080));
-        m_mutex.unlock();
         emit onSourceisAvailable();
+
+        if(!AccumImages){
+            QMutexLocker locker(m);
+
+            source.read(*my_frame);
+            cv::cvtColor(*my_frame, *my_frame, cv::COLOR_BGR2RGB);
+        }
+        else{
+            static int counter = 0;
+            static cv::Mat result = cv::Mat::zeros(512, 640, CV_8UC3);
+            cv::Mat temp;
+            if(counter <= NumImForSumm){
+                if(counter == 0){
+                    result = cv::Mat::zeros(512, 640, CV_8UC3);
+                }
+                source.read(temp);
+                temp /= NumImForSumm;
+                result += temp;
+                counter++;
+            }
+            else{
+                *my_frame = result;
+                emit EnableReadSummImage();
+                counter = 0;
+            }
+        }
     }
 }
 

@@ -14,6 +14,8 @@
 #include <QTime>
 #include <QTimer>
 #include <QThread>
+#include <QMutex>
+#include <QMutexLocker>
 
 #include "opencv2/opencv.hpp"
 #include <opencv2/core.hpp>
@@ -35,7 +37,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(QMutex*, QWidget *parent = nullptr);
     ~MainWindow();
 
 private:
@@ -47,17 +49,19 @@ private:
     QTimer* ptimer_MW;
     int SourceIsAvailableCounter = 0;
     QGraphicsPixmapItem pixmap;
+    QMutex* m;
 
 signals:
     void onSendUDP_PacketToAirUnit(QByteArray);
     void OpenSource();
+    void EnableReadSummImage();
 
 public slots:
 //    void UDPReady(QByteArray);
     void SourceIsAvailable();
 
 private slots:
-//    void on_checkBox_SwitchCenter_clicked(bool checked);
     void Timer_MW();
+    void on_checkBox_Summ_clicked(bool checked);
 };
 #endif // MAINWINDOW_H

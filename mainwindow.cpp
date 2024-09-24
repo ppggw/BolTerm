@@ -5,7 +5,7 @@ namespace{
     bool SourceOpen = true;
 }
 
-MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWindow)
+MainWindow::MainWindow(QMutex* _m, QWidget *parent): QMainWindow(parent), ui(new Ui::MainWindow), m(_m)
 {
     ui->setupUi(this);
 
@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWin
     UDP_Command_Term->moveToThread(UDP_CommandThread);
     UDP_CommandThread->start();
 
-    My_FrameUpdater = new FrameUpdater(&frame);
+    My_FrameUpdater = new FrameUpdater(m, &frame);
     My_FrameUpdaterThread = new QThread();
     My_FrameUpdater->moveToThread(My_FrameUpdaterThread);
     My_FrameUpdaterThread->start();
@@ -34,7 +34,9 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWin
     connect(My_FrameUpdater, SIGNAL(onSourceisAvailable()), this, SLOT(SourceIsAvailable()));
     connect(ptimer_MW, SIGNAL(timeout()), this, SLOT(Timer_MW()));
     connect(ui->horizontalSlider_Threshold, SIGNAL(valueChanged(int)), ui->label_Threshold, SLOT(setNum(int)));
+    connect(ui->horizontalSlider_Summ, SIGNAL(valueChanged(int)), ui->label_Summ, SLOT(setNum(int)));
     connect(this, SIGNAL(OpenSource()), My_FrameUpdater, SLOT(OpenSource()));
+    connect(My_FrameUpdater, SIGNAL(EnableReadSummImage()), this, SLOT(Timer_MW()));
 
     emit OpenSource();
 }
@@ -67,6 +69,9 @@ void MainWindow::Timer_MW(){
     static cv::Mat fon(ui->graphicsView->height(), ui->graphicsView->width(), CV_8UC3, cv::Scalar(255, 255, 255));
     static int counter = 0; //если прошло 30 тиков то цвет меняется
     static cv::Scalar color = cv::Scalar(255,0,0);
+    static int size_of_line = 10;
+
+    QMutexLocker locker(m);
 
     if (SourceIsAvailableCounter > 30)
     {
@@ -74,9 +79,9 @@ void MainWindow::Timer_MW(){
 
         if(counter % 30 == 0){
             color == cv::Scalar(255,0,0) ? color = cv::Scalar(0,0,255) : color = cv::Scalar(255,0,0);
-            double scale = 0.1;
-            double fontScale = cv::min(ui->graphicsView->width(),ui->graphicsView->height())/(25/scale);
             cv::String text = "no connection";
+            static double scale = 0.1;
+            static double fontScale = cv::min(ui->graphicsView->width(),ui->graphicsView->height())/(25/scale);
             cv::Size textsize = cv::getTextSize(text, cv::FONT_HERSHEY_DUPLEX, fontScale, 2, 0);
             cv::putText(fon,
                         text,
@@ -93,24 +98,22 @@ void MainWindow::Timer_MW(){
     if(!frame.empty())
     {
         if(SourceOpen){
-            cv::Mat gray_image;
-            cv::cvtColor(frame, gray_image, cv::COLOR_BGR2GRAY);
-
             if(ui->checkBox_Cut->isChecked()){
+                auto start = std::chrono::system_clock::now();
+
                 cv::threshold(frame, frame, ui->horizontalSlider_Threshold->value(), 255, cv::THRESH_BINARY);
+                cv::medianBlur(frame, frame, 15);
 
                 if(ui->checkBox_GetCenter->isChecked()){
                     using namespace cv;
-                    Mat canny_output;
+//                    Mat canny_output;
                     std::vector<std::vector<Point> > contours;
                     std::vector<Vec4i> hierarchy;
 
-                    // detect edges using canny
-                    // вообще делает почти то же самое, что и трешолд, но сложнее и связнее. Поэтому протестить
-//                    Canny( gray_image, canny_output, 50, 150, 3 );
-
                     // find contours
-                    findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+                    cv::Mat gray_image;
+                    cv::cvtColor(frame, gray_image, cv::COLOR_BGR2GRAY);
+                    findContours( gray_image, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
 
                     // get the moments
                     std::vector<Moments> mu(contours.size());
@@ -124,15 +127,27 @@ void MainWindow::Timer_MW(){
                     // правильно ли усекает
 
                     for(auto& p : mc){
-                        cv::circle(frame, p, 3, cv::Scalar(0,0,255));
-                        static int size_of_line = 10;
-                        cv::line(frame, {p.x - size_of_line/2, p.y}, {p.x + size_of_line/2, p.y}, cv::Scalar(0,0,255), 2);
-                        cv::line(frame, {p.x - size_of_line/2, p.y}, {p.x + size_of_line/2, p.y}, cv::Scalar(0,0,255), 2);
-                        cv::line(frame, {p.x, p.y - size_of_line/2}, {p.x, p.y + size_of_line/2}, cv::Scalar(0,0,255), 2);
-                        }
+                        cv::circle(frame, p, 3, cv::Scalar(255,0,0));
+                        cv::line(frame, {p.x - size_of_line/2, p.y}, {p.x + size_of_line/2, p.y}, cv::Scalar(255,0,0), 2);
+                        cv::line(frame, {p.x - size_of_line/2, p.y}, {p.x + size_of_line/2, p.y}, cv::Scalar(255,0,0), 2);
+                        cv::line(frame, {p.x, p.y - size_of_line/2}, {p.x, p.y + size_of_line/2}, cv::Scalar(255,0,0), 2);
+
+                        cv::putText(frame,
+                                    std::to_string(p.x) + ", " + std::to_string(p.y),
+                                    cv::Point(p.x - 10, p.y - 10),
+                                    cv::FONT_HERSHEY_DUPLEX,
+                                    0.3,
+                                    color,
+                                    1);
+
+                        qDebug() << "Координата центра x = " << p.x << ", y = " << p.y;
                     }
                 }
+                auto end = std::chrono::system_clock::now();
+//                qDebug() << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
             }
+        }
+
         QImage qimg(frame.data,
                     frame.cols,
                     frame.rows,
@@ -151,3 +166,19 @@ void MainWindow::SourceIsAvailable()
     SourceIsAvailableCounter = 0;
 }
 
+
+void MainWindow::on_checkBox_Summ_clicked(bool checked)
+{
+    if(checked){
+        ptimer_MW->stop();
+//        connect(My_FrameUpdater, SIGNAL(EnableReadSummImage()), this, SLOT(Timer_MW()));
+        My_FrameUpdater->AccumImages = true;
+        My_FrameUpdater->NumImForSumm = ui->horizontalSlider_Summ->value();
+    }
+    else{
+//        disconnect(My_FrameUpdater, SIGNAL(EnableReadSummImage()), this, SLOT(Timer_MW()));
+        ptimer_MW->start();
+        My_FrameUpdater->AccumImages = false;
+        My_FrameUpdater->NumImForSumm = 0;
+    }
+}

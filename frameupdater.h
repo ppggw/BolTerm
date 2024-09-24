@@ -11,20 +11,24 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
+
 class FrameUpdater : public QObject
 {
     Q_OBJECT
-public:
-    explicit FrameUpdater(cv::Mat* frame, QObject *parent = nullptr);
-    cv::Mat *my_frame;
-    cv::Mat temp_frame;
-    QTimer *pTimer_MW;
-    QMutex	m_mutex;
 
+private:
+    cv::Mat *my_frame;
+    QTimer *pTimer_MW;
     cv::VideoCapture source;
     cv::String pipeline;
+    QMutex* m;
+
+public:
+    explicit FrameUpdater(QMutex*, cv::Mat* frame, QObject *parent = nullptr);
 
     bool SourceIsAvailable;
+    bool AccumImages = false;
+    int NumImForSumm = 0;
 
 public slots:
     void Timer_MW_timeout(void);
@@ -32,6 +36,7 @@ public slots:
 
 signals:
     void onSourceisAvailable();
+    void EnableReadSummImage();
 
 };
 
